@@ -1,0 +1,10 @@
+.DS_Store
+.env
+bin/
+obj/
+
+# OpenSpec change tracking (local dev tooling)
+openspec/
+
+# Claude Code project files
+.claude/
