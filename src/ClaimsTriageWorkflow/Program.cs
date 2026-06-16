@@ -33,7 +33,8 @@ foreach (var claim in claims)
     Console.WriteLine($"Input: {claim.RawText}");
     Console.WriteLine(new string('=', 60));
 
-    string? policyNumber    = null;
+    string? policyNumber     = null;
+    string? claimId          = null;
     string? finalDisposition = null;
 
     // await using ensures ownership is released even if the stream errors mid-run.
@@ -45,6 +46,7 @@ foreach (var claim in claims)
             && pre.Data is PreprocessedClaim pc)
         {
             policyNumber = pc.PolicyNumber;
+            claimId      = pc.ClaimId;
         }
 
         // Surface any executor-level failures so they don't silently swallow errors.
@@ -54,8 +56,53 @@ foreach (var claim in claims)
             continue;
         }
 
-        var invokedLine    = LoggingMiddleware.GetInvokedMessage(evt);
-        var completedBase  = LoggingMiddleware.GetCompletedMessage(evt);
+        // ── HITL gate: pause, prompt the human, then resume ─────────────────
+        if (evt is RequestInfoEvent hitl)
+        {
+            var req = hitl.Request;
+            req.TryGetDataAs<ClaimClassification>(out var cls);
+
+            Console.WriteLine();
+            Console.WriteLine($"[adjuster_gate] HITL prompt — Claim {claimId} (Policy {policyNumber})");
+            Console.WriteLine($"  urgency={cls?.Urgency}, fraud={cls?.FraudIndicators}, amount=₪{cls?.EstimatedAmount}");
+            Console.WriteLine($"  Options: {HitlConditions.ApproveEscalation} | {HitlConditions.OverrideToAutoApprove}");
+            Console.Write("  > ");
+
+            var decision = Console.ReadLine()?.Trim();
+
+            // Gate response is ClaimClassification so downstream executors receive the correct
+            // type. Approve → return original (still satisfies ShouldEscalate → escalation_handler).
+            // Override → return a modified classification that satisfies ShouldAutoApprove
+            //            → auto_responder_approve sends an approval reply instead.
+            ClaimClassification gateResponse;
+            if (HitlConditions.ShouldOverrideToAutoApprove(decision))
+            {
+                gateResponse = new ClaimClassification
+                {
+                    ClaimType       = cls?.ClaimType ?? string.Empty,
+                    Urgency         = "low",
+                    Sentiment       = cls?.Sentiment ?? "neutral",
+                    EstimatedAmount = 0,
+                    FraudIndicators = false,
+                    SafeToAutoApprove = true,
+                };
+            }
+            else
+            {
+                // approve_escalation or any unrecognised input → keep original classification
+                if (decision != HitlConditions.ApproveEscalation)
+                    Console.WriteLine($"  (unrecognised input — defaulting to {HitlConditions.ApproveEscalation})");
+                gateResponse = cls!;
+            }
+
+            Console.WriteLine();
+            await run.SendResponseAsync(req.CreateResponse(gateResponse));
+            // WatchStreamAsync resumes automatically after SendResponseAsync returns.
+            continue;
+        }
+
+        var invokedLine   = LoggingMiddleware.GetInvokedMessage(evt);
+        var completedBase = LoggingMiddleware.GetCompletedMessage(evt);
 
         if (invokedLine is not null)
             Console.WriteLine(invokedLine);
@@ -70,10 +117,10 @@ foreach (var claim in claims)
             {
                 finalDisposition = completed.ExecutorId switch
                 {
-                    "escalation_handler"    => $"claim {policyNumber} escalated to human adjuster queue",
+                    "escalation_handler"     => $"claim {policyNumber} escalated to human adjuster queue",
                     "auto_responder_approve" => $"claim {policyNumber} auto-approved",
-                    "auto_responder_info"   => $"claim {policyNumber} pending — additional info requested",
-                    _                       => finalDisposition,
+                    "auto_responder_info"    => $"claim {policyNumber} pending — additional info requested",
+                    _                        => finalDisposition,
                 };
             }
         }

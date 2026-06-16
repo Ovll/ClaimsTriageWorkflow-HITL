@@ -8,3 +8,4 @@ openspec/
 
 # Claude Code project files
 .claude/
+.serena/

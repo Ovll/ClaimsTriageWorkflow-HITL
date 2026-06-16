@@ -18,11 +18,13 @@ InboundClaim
      ▼
 [router]                Passthrough — branching is on the edges, not here
      │
-     ├─ urgency==high || fraud || amount>10k ──► [escalation_handler] ──► [INBOX]
+     ├─ urgency==high || fraud || amount>10k ──► [adjuster_gate] ──► [escalation_handler] ──► [INBOX]
+     │                                                  │
+     │                                                  └── override ──► [auto_responder_approve]
      │
-     ├─ missingInfo.Count>0 && !safeToAutoApprove ──────────────────► [auto_responder_info]
+     ├─ missingInfo.Count>0 && !safeToAutoApprove ────────────────────────► [auto_responder_info]
      │
-     └─ safeToAutoApprove && amount<=10k ───────────────────────────► [auto_responder_approve]
+     └─ safeToAutoApprove && amount<=10k ─────────────────────────────────► [auto_responder_approve]
 ```
 
 ### Executors
@@ -32,6 +34,7 @@ InboundClaim
 | `preprocessor` | Deterministic executor | Regex PII masking, policy extraction, date normalisation |
 | `classifier` | `ChatClientAgent` | Produces structured `ClaimClassification` via LLM |
 | `router` | Deterministic executor | Forwards `ClaimClassification` unchanged; edges branch |
+| `adjuster_gate` | `RequestPort` (HITL) | Pauses workflow, prompts operator for a decision |
 | `escalation_handler` | Deterministic executor | Builds `AdjusterDossier`, writes to `[INBOX]` |
 | `auto_responder_approve` | `ChatClientAgent` | Drafts approval letter |
 | `auto_responder_info` | `ChatClientAgent` | Drafts missing-information request |
@@ -109,18 +112,49 @@ Final: claim IL-9910 escalated to human adjuster queue
 
 ---
 
+## Human-in-the-Loop (HITL)
+
+Escalated claims pause at `adjuster_gate` before reaching the adjuster inbox. The operator is prompted on the console and must choose one of two options:
+
+| Input | Outcome |
+|-------|---------|
+| `approve_escalation` | Workflow continues to `escalation_handler` → dossier pushed to `[INBOX]` |
+| `override_to_auto_approve` | Workflow continues to `auto_responder_approve` → approval reply sent to customer |
+
+Any unrecognised input defaults to `approve_escalation`.
+
+### Example console interaction (Claim C)
+
+```
+[adjuster_gate] invoked
+
+[adjuster_gate] HITL prompt — Claim IL-9910 (Policy IL-9910)
+  urgency=high, fraud=False, amount=₪0
+  Options: approve_escalation | override_to_auto_approve
+  > approve_escalation
+
+[adjuster_gate] completed
+[escalation_handler] invoked
+[INBOX] {"ClaimId":"IL-9910", ...}
+[escalation_handler] completed
+Final: claim IL-9910 escalated to human adjuster queue
+```
+
+---
+
 ## Tests
 
 ```bash
 dotnet test
 ```
 
-30 unit tests covering:
+36 unit tests covering:
 - PII masking (email, phone, name)
 - Policy number extraction
 - Date normalisation
 - Escalation reason priority (`high_amount` > `fraud_flag` > `high_urgency`)
 - All three routing conditions and their priority order
+- HITL gate response parsing (`approve_escalation` / `override_to_auto_approve`)
 
 ---
 
@@ -152,5 +186,6 @@ ClaimsTriageWorkflow/
     ├── PreprocessorTests.cs
     ├── RouterTests.cs
     ├── EscalationHandlerTests.cs
-    └── RoutingConditionTests.cs
+    ├── RoutingConditionTests.cs
+    └── HitlRoutingTests.cs
 ```
