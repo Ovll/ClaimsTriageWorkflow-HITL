@@ -12,7 +12,7 @@ public class EscalationHandlerTests
     public void High_amount_is_first_priority()
     {
         // Amount > threshold beats fraud and urgency
-        var c = Classification(amount: 50_000m, fraud: true, urgency: "high");
+        var c = Classification(amount: 50_000m, fraud: true, urgency: UrgencyLevel.High);
         Assert.Equal("high_amount", EscalationHandler.DetermineReason(c));
     }
 
@@ -20,14 +20,14 @@ public class EscalationHandlerTests
     public void Fraud_flag_is_second_priority()
     {
         // Fraud beats urgency when amount is within threshold
-        var c = Classification(amount: 1_000m, fraud: true, urgency: "high");
+        var c = Classification(amount: 1_000m, fraud: true, urgency: UrgencyLevel.High);
         Assert.Equal("fraud_flag", EscalationHandler.DetermineReason(c));
     }
 
     [Fact]
     public void High_urgency_is_fallback_reason()
     {
-        var c = Classification(amount: 500m, fraud: false, urgency: "high");
+        var c = Classification(amount: 500m, fraud: false, urgency: UrgencyLevel.High);
         Assert.Equal("high_urgency", EscalationHandler.DetermineReason(c));
     }
 
@@ -37,7 +37,7 @@ public class EscalationHandlerTests
     public async Task Dossier_fields_are_populated_correctly()
     {
         var claim = new PreprocessedClaim("IL-9910", "IL-9910", "masked text", null, "original");
-        var classification = Classification(amount: 0m, fraud: false, urgency: "high");
+        var classification = Classification(amount: 0m, fraud: false, urgency: UrgencyLevel.High);
 
         var ctx = new FakeWorkflowContext();
         ctx.SetState("preprocessed_claim", claim);
@@ -63,7 +63,7 @@ public class EscalationHandlerTests
         Console.SetOut(new System.IO.StringWriter(output));
         try
         {
-            await EscalationHandler.Handle(Classification(0m, false, "high"), ctx, CancellationToken.None);
+            await EscalationHandler.Handle(Classification(0m, false, UrgencyLevel.High), ctx, CancellationToken.None);
         }
         finally
         {
@@ -75,6 +75,6 @@ public class EscalationHandlerTests
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private static ClaimClassification Classification(decimal amount, bool fraud, string urgency)
+    private static ClaimClassification Classification(decimal amount, bool fraud, UrgencyLevel urgency)
         => new() { EstimatedAmount = amount, FraudIndicators = fraud, Urgency = urgency };
 }

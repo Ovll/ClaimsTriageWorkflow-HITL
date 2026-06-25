@@ -6,5 +6,5 @@ public record AdjusterDossier(
     string PolicyNumber,
     ClaimClassification Classification,
     string MaskedText,
-    string EscalationReason   // "high_urgency" | "fraud_flag" | "high_amount"
+    string EscalationReason // "high_urgency" | "fraud_flag" | "high_amount"
 );

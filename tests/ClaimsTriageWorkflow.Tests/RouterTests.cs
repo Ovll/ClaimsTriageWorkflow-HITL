@@ -9,7 +9,7 @@ public class RouterTests
     [Fact]
     public void Router_output_is_same_object_as_input()
     {
-        var classification = new ClaimClassification { ClaimType = "vehicle", Urgency = "medium" };
+        var classification = new ClaimClassification { ClaimType = ClaimType.Vehicle, Urgency = UrgencyLevel.Medium };
         var result = Router.Passthrough(classification);
         Assert.Same(classification, result);
     }
@@ -19,9 +19,9 @@ public class RouterTests
     {
         var classification = new ClaimClassification
         {
-            ClaimType = "property",
-            Urgency = "high",
-            Sentiment = "distressed",
+            ClaimType = ClaimType.Property,
+            Urgency = UrgencyLevel.High,
+            Sentiment = SentimentType.Distressed,
             EstimatedAmount = 50_000m,
             FraudIndicators = false,
             SafeToAutoApprove = false,
@@ -30,9 +30,9 @@ public class RouterTests
 
         var result = Router.Passthrough(classification);
 
-        Assert.Equal("property", result.ClaimType);
-        Assert.Equal("high", result.Urgency);
-        Assert.Equal("distressed", result.Sentiment);
+        Assert.Equal(ClaimType.Property, result.ClaimType);
+        Assert.Equal(UrgencyLevel.High, result.Urgency);
+        Assert.Equal(SentimentType.Distressed, result.Sentiment);
         Assert.Equal(50_000m, result.EstimatedAmount);
         Assert.False(result.FraudIndicators);
         Assert.False(result.SafeToAutoApprove);
@@ -42,7 +42,7 @@ public class RouterTests
     [Fact]
     public async Task Handle_returns_same_classification_via_context()
     {
-        var classification = new ClaimClassification { ClaimType = "health" };
+        var classification = new ClaimClassification { ClaimType = ClaimType.Health };
         var ctx = new FakeWorkflowContext();
         var result = await Router.Handle(classification, ctx, CancellationToken.None);
         Assert.Same(classification, result);

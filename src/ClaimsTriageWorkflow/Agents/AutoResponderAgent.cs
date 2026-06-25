@@ -36,9 +36,9 @@ public static class AutoResponderAgent
     {
         var (systemPrompt, executorId) = mode switch
         {
-            "approval"     => (ApprovalPrompt,     "auto_responder_approve"),
-            "info_request" => (InfoRequestPrompt,   "auto_responder_info"),
-            _              => throw new ArgumentException($"Unknown mode: {mode}", nameof(mode)),
+            "approval" => (ApprovalPrompt, "auto_responder_approve"),
+            "info_request" => (InfoRequestPrompt, "auto_responder_info"),
+            _ => throw new ArgumentException($"Unknown mode: {mode}", nameof(mode)),
         };
 
         // Constructor: (chatClient, instructions, name, description, tools, loggerFactory, services)
@@ -47,22 +47,31 @@ public static class AutoResponderAgent
         Func<ClaimClassification, IWorkflowContext, CancellationToken, ValueTask<string>> handler =
             async (classification, ctx, ct) =>
             {
-                var claim   = await ctx.ReadStateAsync<PreprocessedClaim>("preprocessed_claim", "run", ct)
-                    ?? throw new InvalidOperationException("preprocessed_claim state not found in workflow context");
-                var prompt = mode == "approval"
-                    ? $"""
-                      Policy: {claim.PolicyNumber}
-                      Claim type: {classification.ClaimType}
-                      Approved amount: ₪{classification.EstimatedAmount}
-                      """
-                    : $"""
-                      Policy: {claim.PolicyNumber}
-                      Claim type: {classification.ClaimType}
-                      Missing items: {string.Join(", ", classification.MissingInfo)}
-                      """;
+                var claim =
+                    await ctx.ReadStateAsync<PreprocessedClaim>("preprocessed_claim", "run", ct)
+                    ?? throw new InvalidOperationException(
+                        "preprocessed_claim state not found in workflow context"
+                    );
+                var prompt =
+                    mode == "approval"
+                        ? $"""
+                            Policy: {claim.PolicyNumber}
+                            Claim type: {classification.ClaimType}
+                            Approved amount: ₪{classification.EstimatedAmount}
+                            """
+                        : $"""
+                            Policy: {claim.PolicyNumber}
+                            Claim type: {classification.ClaimType}
+                            Missing items: {string.Join(", ", classification.MissingInfo)}
+                            """;
 
                 // Pass null session so MAF creates a fresh stateless session per invocation.
-                var response = await agent.RunAsync(prompt, null, (ChatClientAgentRunOptions?)null, ct);
+                var response = await agent.RunAsync(
+                    prompt,
+                    null,
+                    (ChatClientAgentRunOptions?)null,
+                    ct
+                );
                 return response.Text;
             };
 

@@ -8,8 +8,8 @@ using Microsoft.Agents.AI.Workflows;
 Env.Load();
 
 var chatClient = ChatClientFactory.Create();
-var workflow   = ClaimsWorkflow.Build(chatClient);
-var env        = InProcessExecution.Default;
+var workflow = ClaimsWorkflow.Build(chatClient);
+var env = InProcessExecution.Default;
 
 var claims = new[]
 {
@@ -33,8 +33,8 @@ foreach (var claim in claims)
     Console.WriteLine($"Input: {claim.RawText}");
     Console.WriteLine(new string('=', 60));
 
-    string? policyNumber     = null;
-    string? claimId          = null;
+    string? policyNumber = null;
+    string? claimId = null;
     string? finalDisposition = null;
 
     // await using ensures ownership is released even if the stream errors mid-run.
@@ -42,11 +42,13 @@ foreach (var claim in claims)
     await foreach (var evt in run.WatchStreamAsync(CancellationToken.None))
     {
         // Track the preprocessor output so later events can refer to the policy-based ID.
-        if (evt is ExecutorCompletedEvent { ExecutorId: "preprocessor" } pre
-            && pre.Data is PreprocessedClaim pc)
+        if (
+            evt is ExecutorCompletedEvent { ExecutorId: "preprocessor" } pre
+            && pre.Data is PreprocessedClaim pc
+        )
         {
             policyNumber = pc.PolicyNumber;
-            claimId      = pc.ClaimId;
+            claimId = pc.ClaimId;
         }
 
         // Surface any executor-level failures so they don't silently swallow errors.
@@ -63,9 +65,18 @@ foreach (var claim in claims)
             req.TryGetDataAs<ClaimClassification>(out var cls);
 
             Console.WriteLine();
-            Console.WriteLine($"[adjuster_gate] HITL prompt — Claim {claimId} (Policy {policyNumber})");
-            Console.WriteLine($"  urgency={cls?.Urgency}, fraud={cls?.FraudIndicators}, amount=₪{cls?.EstimatedAmount}");
-            Console.WriteLine($"  Options: {HitlConditions.ApproveEscalation} | {HitlConditions.OverrideToAutoApprove}");
+            Console.WriteLine(
+                $"[adjuster_gate] HITL prompt — Claim {claimId} (Policy {policyNumber})"
+            );
+            Console.WriteLine(
+                $"  urgency={cls?.Urgency}, fraud={cls?.FraudIndicators}, amount=₪{cls?.EstimatedAmount}"
+            );
+            Console.WriteLine(
+                $"  rationale={cls?.ClassificationRationale} confidence={cls?.ClassificationConfidence:F2}"
+            );
+            Console.WriteLine(
+                $"  Options: {HitlConditions.ApproveEscalation} | {HitlConditions.OverrideToAutoApprove}"
+            );
             Console.Write("  > ");
 
             var decision = Console.ReadLine()?.Trim();
@@ -77,21 +88,15 @@ foreach (var claim in claims)
             ClaimClassification gateResponse;
             if (HitlConditions.ShouldOverrideToAutoApprove(decision))
             {
-                gateResponse = new ClaimClassification
-                {
-                    ClaimType       = cls?.ClaimType ?? string.Empty,
-                    Urgency         = "low",
-                    Sentiment       = cls?.Sentiment ?? "neutral",
-                    EstimatedAmount = 0,
-                    FraudIndicators = false,
-                    SafeToAutoApprove = true,
-                };
+                gateResponse = HitlConditions.BuildOverrideResponse(cls);
             }
             else
             {
                 // approve_escalation or any unrecognised input → keep original classification
                 if (decision != HitlConditions.ApproveEscalation)
-                    Console.WriteLine($"  (unrecognised input — defaulting to {HitlConditions.ApproveEscalation})");
+                    Console.WriteLine(
+                        $"  (unrecognised input — defaulting to {HitlConditions.ApproveEscalation})"
+                    );
                 gateResponse = cls!;
             }
 
@@ -101,7 +106,7 @@ foreach (var claim in claims)
             continue;
         }
 
-        var invokedLine   = LoggingMiddleware.GetInvokedMessage(evt);
+        var invokedLine = LoggingMiddleware.GetInvokedMessage(evt);
         var completedBase = LoggingMiddleware.GetCompletedMessage(evt);
 
         if (invokedLine is not null)
@@ -117,10 +122,12 @@ foreach (var claim in claims)
             {
                 finalDisposition = completed.ExecutorId switch
                 {
-                    "escalation_handler"     => $"claim {policyNumber} escalated to human adjuster queue",
+                    "escalation_handler" =>
+                        $"claim {policyNumber} escalated to human adjuster queue",
                     "auto_responder_approve" => $"claim {policyNumber} auto-approved",
-                    "auto_responder_info"    => $"claim {policyNumber} pending — additional info requested",
-                    _                        => finalDisposition,
+                    "auto_responder_info" =>
+                        $"claim {policyNumber} pending — additional info requested",
+                    _ => finalDisposition,
                 };
             }
         }
@@ -136,15 +143,17 @@ foreach (var claim in claims)
 
 static string CompletionSuffix(WorkflowEvent evt)
 {
-    if (evt is not ExecutorCompletedEvent completed) return string.Empty;
+    if (evt is not ExecutorCompletedEvent completed)
+        return string.Empty;
 
     return completed.ExecutorId switch
     {
-        "classifier" when completed.Data is ClaimClassification cls1
-            => FormatClassifierSummary(cls1),
+        "classifier" when completed.Data is ClaimClassification cls1 => FormatClassifierSummary(
+            cls1
+        ),
 
-        "router" when completed.Data is ClaimClassification cls2
-            => $" — route: {ComputeRoute(cls2)}",
+        "router" when completed.Data is ClaimClassification cls2 =>
+            $" — route: {ComputeRoute(cls2)}",
 
         _ => string.Empty,
     };
@@ -156,7 +165,7 @@ static string FormatClassifierSummary(ClaimClassification c)
     return $" — {c.ClaimType} / {c.Urgency} / {c.Sentiment} / ₪{c.EstimatedAmount} / {route}";
 }
 
-static string ComputeRoute(ClaimClassification c)
-    => RoutingConditions.ShouldEscalate(c)    ? "escalate_to_adjuster"
-     : RoutingConditions.ShouldRequestInfo(c) ? "request_more_info"
-     : "auto_approve";
+static string ComputeRoute(ClaimClassification c) =>
+    RoutingConditions.ShouldEscalate(c) ? "escalate_to_adjuster"
+    : RoutingConditions.ShouldRequestInfo(c) ? "request_more_info"
+    : "auto_approve";

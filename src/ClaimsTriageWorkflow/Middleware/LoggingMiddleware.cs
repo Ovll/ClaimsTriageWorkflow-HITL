@@ -10,10 +10,10 @@ namespace ClaimsTriageWorkflow.Middleware;
 public static class LoggingMiddleware
 {
     /// <summary>Returns the log line for an ExecutorInvokedEvent, or null for other event types.</summary>
-    public static string? GetInvokedMessage(WorkflowEvent evt)
-        => evt is ExecutorInvokedEvent invoked ? $"[{invoked.ExecutorId}] invoked" : null;
+    public static string? GetInvokedMessage(WorkflowEvent evt) =>
+        evt is ExecutorInvokedEvent invoked ? $"[{invoked.ExecutorId}] invoked" : null;
 
     /// <summary>Returns the base log line for an ExecutorCompletedEvent (without enrichment suffix).</summary>
-    public static string? GetCompletedMessage(WorkflowEvent evt)
-        => evt is ExecutorCompletedEvent completed ? $"[{completed.ExecutorId}] completed" : null;
+    public static string? GetCompletedMessage(WorkflowEvent evt) =>
+        evt is ExecutorCompletedEvent completed ? $"[{completed.ExecutorId}] completed" : null;
 }
