@@ -1,0 +1,13 @@
+**/.git
+**/.gitignore
+**/.env
+**/bin
+**/obj
+.dockerignore
+.github/
+openspec/
+.claude/
+.serena/
+CLAUDE.md
+Requirements.md
+SPEC.md

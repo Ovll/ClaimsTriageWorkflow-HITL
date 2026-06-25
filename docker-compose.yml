@@ -1,0 +1,9 @@
+services:
+  triage:
+    build: .
+    # stdin_open + tty are required: the HITL adjuster_gate pauses the workflow
+    # and reads a decision from the operator via Console.ReadLine().
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env

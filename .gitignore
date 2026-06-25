@@ -3,6 +3,11 @@
 bin/
 obj/
 
+# Course materials
+SPEC.md
+Requirements.md
+CLAUDE.md
+
 # OpenSpec change tracking (local dev tooling)
 openspec/
 
