@@ -7,3 +7,7 @@ services:
     tty: true
     env_file:
       - .env
+    # Allows the container to reach Ollama running on the host.
+    # On Linux, host.docker.internal is not available by default; this adds it.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

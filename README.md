@@ -1,6 +1,6 @@
 # Claims Triage Workflow
 
-![CI](https://github.com/Ovll/ClaimsTriageWorkflow-HITL/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Ovll/ClaimsTriageWorkflow-HITL/actions/workflows/ci.yml/badge.svg?branch=main)
 
 An insurance claims triage system built with the **Microsoft Agent Framework (MAF)** and **Azure OpenAI / Ollama**. Incoming claims are preprocessed deterministically, classified by an LLM into a typed structured output, and automatically routed to one of three outcomes — auto-approval, information request, or human escalation via an interactive HITL gate.
 
@@ -44,9 +44,11 @@ AMOUNT_THRESHOLD=10000
 **Local Ollama** (`ollama pull qwen2.5:7b` first)
 ```env
 LLM_PROVIDER=ollama
-OLLAMA_ENDPOINT=http://localhost:11434/v1
 OLLAMA_MODEL=qwen2.5:7b
 AMOUNT_THRESHOLD=10000
+# dotnet run  → http://localhost:11434/v1
+# docker compose run → http://host.docker.internal:11434/v1
+OLLAMA_ENDPOINT=http://localhost:11434/v1
 ```
 
 ---
