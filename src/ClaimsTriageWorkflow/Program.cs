@@ -79,6 +79,10 @@ foreach (var claim in ResolveClaims(args))
             if (HitlConditions.ShouldOverrideToAutoApprove(decision))
             {
                 gateResponse = HitlConditions.BuildOverrideResponse(cls);
+                // Sync classification to the gate response so the audit record reflects
+                // the classification that actually drove the routing decision, not the
+                // original escalating output that the human chose to override.
+                classification = gateResponse;
             }
             else
             {

@@ -203,8 +203,8 @@ tests/ClaimsTriageWorkflow.Tests/
 ├── PreprocessorTests.cs        12 tests
 ├── RouterTests.cs               3 tests
 ├── EscalationHandlerTests.cs    8 tests  (incl. priority chain)
-├── RoutingConditionTests.cs    29 tests  (incl. confidence + red-flag)
-├── HitlRoutingTests.cs          9 tests
+├── RoutingConditionTests.cs    30 tests  (incl. confidence + red-flag)
+├── HitlRoutingTests.cs          7 tests
 ├── ClassifierJsonOptionsTests.cs 3 tests
 ├── EvalSetTests.cs              1 test   (12 labeled cases)
 └── Eval/eval-cases.json        12 labeled routing cases
