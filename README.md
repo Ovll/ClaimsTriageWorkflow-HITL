@@ -16,7 +16,8 @@ This project is a portfolio piece demonstrating production-quality patterns for 
 |---|---|---|
 | Language / runtime | C# / .NET 8 | Top-level statements, nullable enabled |
 | Agent framework | Microsoft Agent Framework 1.10.0 | `WorkflowBuilder`, `ChatClientAgent`, `RequestPort` |
-| LLM — cloud | Azure OpenAI `gpt-4o` | Default; set via `LLM_PROVIDER=azure` |
+| LLM — cloud (Azure) | Azure OpenAI `gpt-4o` | Set via `LLM_PROVIDER=azure` |
+| LLM — cloud (OpenAI) | OpenAI `gpt-4o` | Set via `LLM_PROVIDER=openai`; needs `sk-...` key |
 | LLM — local | Ollama `qwen2.5:7b` | Dev/offline; set via `LLM_PROVIDER=ollama` |
 | Structured output | `RunAsync<T>` + `JsonStringEnumConverter` | Schema derived from C# type; no manual JSON wiring |
 | Test framework | xUnit 2.9 | 64 unit tests; no LLM or network required |
@@ -69,6 +70,13 @@ AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AMOUNT_THRESHOLD=10000
+```
+
+**Direct OpenAI** (key from platform.openai.com)
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-your-key-here
+OPENAI_MODEL=gpt-4o
 ```
 
 **Local Ollama** (`ollama pull qwen2.5:7b` first)
