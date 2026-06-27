@@ -28,6 +28,17 @@ public static class ChatClientFactory
                 .AsIChatClient();
         }
 
+        if (provider == "openai")
+        {
+            var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+                ?? throw new InvalidOperationException("OPENAI_API_KEY is not set");
+            var model = Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? "gpt-4o";
+
+            return new OpenAIClient(new ApiKeyCredential(apiKey))
+                .GetChatClient(model)
+                .AsIChatClient();
+        }
+
         // Default: Azure OpenAI
         return new AzureOpenAIClient(
             new Uri(Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")!),
