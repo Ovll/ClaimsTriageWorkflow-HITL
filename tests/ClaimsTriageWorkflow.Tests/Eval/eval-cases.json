@@ -1,0 +1,188 @@
+[
+  {
+    "ExpectedRoute": "auto_approve",
+    "Input": {
+      "ClaimType": "Property",
+      "Urgency": "Low",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 800,
+      "MissingInfo": [],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": true,
+      "ClassificationRationale": "Routine low-value property claim with receipt attached.",
+      "ClassificationConfidence": 0.95
+    }
+  },
+  {
+    "ExpectedRoute": "auto_approve",
+    "Input": {
+      "ClaimType": "Health",
+      "Urgency": "Low",
+      "Sentiment": "Positive",
+      "EstimatedAmount": 500,
+      "MissingInfo": [],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": true,
+      "ClassificationRationale": "Routine health claim with complete documentation.",
+      "ClassificationConfidence": 0.92
+    }
+  },
+  {
+    "ExpectedRoute": "auto_approve",
+    "Input": {
+      "ClaimType": "Liability",
+      "Urgency": "Low",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 3000,
+      "MissingInfo": [],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": true,
+      "ClassificationRationale": "Routine liability claim within threshold with full documentation.",
+      "ClassificationConfidence": 0.88
+    }
+  },
+  {
+    "ExpectedRoute": "request_more_info",
+    "Input": {
+      "ClaimType": "Vehicle",
+      "Urgency": "Medium",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 0,
+      "MissingInfo": ["police_report", "photos"],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Vehicle claim missing police report and photographic evidence.",
+      "ClassificationConfidence": 0.85
+    }
+  },
+  {
+    "ExpectedRoute": "request_more_info",
+    "Input": {
+      "ClaimType": "Property",
+      "Urgency": "Low",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 0,
+      "MissingInfo": ["repair_estimate", "photos"],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Property claim missing repair estimate and supporting photos.",
+      "ClassificationConfidence": 0.80
+    }
+  },
+  {
+    "ExpectedRoute": "request_more_info",
+    "Input": {
+      "ClaimType": "Health",
+      "Urgency": "Medium",
+      "Sentiment": "Frustrated",
+      "EstimatedAmount": 500,
+      "MissingInfo": ["medical_records"],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Health claim missing required medical documentation.",
+      "ClassificationConfidence": 0.78
+    }
+  },
+  {
+    "ExpectedRoute": "escalate_to_adjuster",
+    "Input": {
+      "ClaimType": "Property",
+      "Urgency": "High",
+      "Sentiment": "Distressed",
+      "EstimatedAmount": 0,
+      "MissingInfo": [],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Total loss warehouse fire with extreme distress language.",
+      "ClassificationConfidence": 0.95,
+      "PreScreenFlags": {
+        "TotalLoss": true,
+        "FireOrExplosion": true,
+        "FloodOrWater": false,
+        "FraudLanguage": false,
+        "HighValueLanguage": true,
+        "LegalLanguage": false
+      }
+    }
+  },
+  {
+    "ExpectedRoute": "escalate_to_adjuster",
+    "ExpectedReason": "red_flag",
+    "Input": {
+      "ClaimType": "Property",
+      "Urgency": "Low",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 50000,
+      "MissingInfo": [],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Total loss event combined with high amount — red_flag beats high_amount.",
+      "ClassificationConfidence": 0.90,
+      "PreScreenFlags": {
+        "TotalLoss": true,
+        "FireOrExplosion": false,
+        "FloodOrWater": false,
+        "FraudLanguage": false,
+        "HighValueLanguage": false,
+        "LegalLanguage": false
+      }
+    }
+  },
+  {
+    "ExpectedRoute": "escalate_to_adjuster",
+    "Input": {
+      "ClaimType": "Vehicle",
+      "Urgency": "Medium",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 8000,
+      "MissingInfo": [],
+      "FraudIndicators": true,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Suspicious claim with inconsistent timeline and vague loss description.",
+      "ClassificationConfidence": 0.88
+    }
+  },
+  {
+    "ExpectedRoute": "escalate_to_adjuster",
+    "ExpectedReason": "low_confidence",
+    "Input": {
+      "ClaimType": "Other",
+      "Urgency": "Medium",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 1000,
+      "MissingInfo": [],
+      "FraudIndicators": true,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Vague claim with suspicious elements — low_confidence beats fraud_flag.",
+      "ClassificationConfidence": 0.3
+    }
+  },
+  {
+    "ExpectedRoute": "escalate_to_adjuster",
+    "Input": {
+      "ClaimType": "Other",
+      "Urgency": "Low",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 200,
+      "MissingInfo": [],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "Vague claim text, cannot determine incident type with confidence.",
+      "ClassificationConfidence": 0.4
+    }
+  },
+  {
+    "ExpectedRoute": "escalate_to_adjuster",
+    "Input": {
+      "ClaimType": "Property",
+      "Urgency": "Low",
+      "Sentiment": "Neutral",
+      "EstimatedAmount": 50000,
+      "MissingInfo": [],
+      "FraudIndicators": false,
+      "SafeToAutoApprove": false,
+      "ClassificationRationale": "High-value property claim exceeding the approval threshold.",
+      "ClassificationConfidence": 0.95
+    }
+  }
+]

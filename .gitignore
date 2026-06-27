@@ -2,6 +2,7 @@
 .env
 bin/
 obj/
+audit.log
 
 # Course materials
 SPEC.md

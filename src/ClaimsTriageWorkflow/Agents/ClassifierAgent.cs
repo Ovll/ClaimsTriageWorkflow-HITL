@@ -71,7 +71,10 @@ public static class ClassifierAgent
                 var response = await agent.RunAsync<ClaimClassification>(
                     prompt, null, JsonOptions, (ChatClientAgentRunOptions?)null, ct);
 
-                return response.Result;
+                var cls = response.Result;
+                // LLM does not populate PreScreenFlags; attach deterministic flags from the preprocessor.
+                cls.PreScreenFlags = claim.PreScreenFlags;
+                return cls;
             };
 
         return handler.BindAsExecutor("classifier", ExecutorOptions.Default, false);

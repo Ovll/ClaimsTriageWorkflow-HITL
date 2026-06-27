@@ -23,7 +23,18 @@ The image builds and runs tests before starting. The HITL gate for escalated cla
 
 ```bash
 cp .env.example .env        # fill in your credentials
+
+# Run the three built-in fixture claims
 dotnet run --project src/ClaimsTriageWorkflow/
+
+# Single claim from the command line
+dotnet run --project src/ClaimsTriageWorkflow/ -- --claim "My roof leaked, policy IL-3301, receipt attached, ₪800."
+
+# Batch from a CSV file (columns: claimId,text; supports quoted text with commas)
+dotnet run --project src/ClaimsTriageWorkflow/ -- --file claims.csv
+
+# Pipe claims from stdin (one claim text per line)
+echo "Policy IL-5540, car accident yesterday, no details yet." | dotnet run --project src/ClaimsTriageWorkflow/
 ```
 
 ---
@@ -75,7 +86,7 @@ InboundClaim
      └─ safe to approve ────────────────────────► [auto_responder_approve]
 ```
 
-Escalate fires when any of: `urgency == High`, `fraudIndicators == true`, `estimatedAmount > threshold`, or the LLM returned an unrecognised enum value (`Unknown` sentinel).
+Escalate fires when any of: `preScreenFlags.Any == true` (deterministic red-flag), `classificationConfidence < threshold` (default 0.65), `urgency == High`, `fraudIndicators == true`, `estimatedAmount > threshold`, or the LLM returned an unrecognised enum value (`Unknown` sentinel). Escalation reason priority: `red_flag → low_confidence → high_amount → fraud_flag → high_urgency`.
 
 ### Nodes
 
@@ -99,7 +110,15 @@ Escalate fires when any of: `urgency == High`, `fraudIndicators == true`, `estim
 
 **HITL gate response is `ClaimClassification`, not a string.** The gate's `RequestPort<ClaimClassification, ClaimClassification>` returns the same type that feeds downstream executors. On `approve_escalation` the original classification is returned unchanged (it still satisfies `ShouldEscalate`). On `override_to_auto_approve`, `HitlConditions.BuildOverrideResponse` builds a modified classification that satisfies `ShouldAutoApprove`, so the workflow continues to `auto_responder_approve` without a type mismatch.
 
-**Escalation reason priority: `high_amount > fraud_flag > high_urgency`.** The `EscalationHandler` applies a deterministic priority so the primary reason recorded in the dossier is always the most actionable one, regardless of which combination of flags is set.
+**Escalation reason priority: `red_flag → low_confidence → high_amount → fraud_flag → high_urgency`.** The `EscalationHandler` applies a deterministic priority so the primary reason recorded in the dossier is always the most actionable one, regardless of which combination of flags is set.
+
+**Deterministic red-flag pre-screening.** `RedFlagDetector` scans raw claim text for six high-risk keyword categories (total loss, fire/explosion, flood, fraud language, high-value language, legal language) before the LLM runs. Flags are attached to `ClaimClassification` by the classifier handler after LLM deserialization — the Router stays a true passthrough. Any fired flag immediately triggers escalation, independently of LLM output.
+
+**Confidence threshold routing.** `ClassificationConfidence < Constants.ConfidenceThreshold` (default 0.65, env-configurable) triggers escalation. This ensures that low-certainty LLM output never silently reaches auto-approval.
+
+**Append-only audit log.** After each completed claim run, an `AuditRecord` is serialised as one JSON line and appended to `audit.log` (path configurable via `AUDIT_LOG_PATH`). No record is written when the classifier fails.
+
+**Flexible CLI input.** `--claim "text"` for a single inline claim, `--file claims.csv` for batch (supports quoted fields with embedded commas via `TextFieldParser`), piped stdin for shell pipelines, and a fixture fallback when no arguments are given.
 
 ---
 
@@ -145,7 +164,7 @@ Final: claim IL-9910 escalated to human adjuster queue
 dotnet test
 ```
 
-47 unit tests covering PII masking, routing conditions, escalation reason priority, enum sentinel fail-safe, and HITL response parsing. No LLM or network required.
+Unit tests covering PII masking, routing conditions, red-flag detection, confidence threshold routing, escalation reason priority, enum sentinel fail-safe, HITL response parsing, and a labeled 12-case eval set. No LLM or network required.
 
 ---
 
@@ -154,20 +173,24 @@ dotnet test
 ```
 src/ClaimsTriageWorkflow/
 ├── Program.cs                  Entry point — runs 3 sample claims
-├── Constants.cs                AmountThreshold (env-configurable)
+├── Constants.cs                AmountThreshold + ConfidenceThreshold (env-configurable)
 ├── ChatClientFactory.cs        IChatClient builder (Azure or Ollama)
 ├── Models/
 │   ├── InboundClaim.cs
 │   ├── PreprocessedClaim.cs
-│   ├── ClaimClassification.cs  9 fields; typed enums for ClaimType/Urgency/Sentiment
+│   ├── ClaimClassification.cs  11 fields; typed enums, PreScreenFlags, ClassificationConfidence
+│   ├── PreScreenFlags.cs       6 deterministic keyword flags + Any computed property
+│   ├── AuditRecord.cs          per-claim decision record for the JSONL audit log
 │   ├── ClaimType.cs            Vehicle | Property | Health | Liability | Other
 │   ├── UrgencyLevel.cs         High | Medium | Low  (Unknown = 0 sentinel)
 │   ├── SentimentType.cs        Positive | Neutral | Frustrated | Distressed
 │   └── AdjusterDossier.cs
 ├── Executors/
 │   ├── Preprocessor.cs
+│   ├── RedFlagDetector.cs      keyword-based PreScreenFlags detection (no LLM)
 │   ├── Router.cs
 │   └── EscalationHandler.cs
+├── AuditLogger.cs              appends AuditRecord as JSONL line
 ├── Agents/
 │   ├── ClassifierAgent.cs
 │   └── AutoResponderAgent.cs
@@ -179,8 +202,10 @@ src/ClaimsTriageWorkflow/
 tests/ClaimsTriageWorkflow.Tests/
 ├── PreprocessorTests.cs        12 tests
 ├── RouterTests.cs               3 tests
-├── EscalationHandlerTests.cs    4 tests
-├── RoutingConditionTests.cs    16 tests
+├── EscalationHandlerTests.cs    8 tests  (incl. priority chain)
+├── RoutingConditionTests.cs    29 tests  (incl. confidence + red-flag)
 ├── HitlRoutingTests.cs          9 tests
-└── ClassifierJsonOptionsTests.cs 3 tests
+├── ClassifierJsonOptionsTests.cs 3 tests
+├── EvalSetTests.cs              1 test   (12 labeled cases)
+└── Eval/eval-cases.json        12 labeled routing cases
 ```

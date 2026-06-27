@@ -7,13 +7,15 @@ namespace ClaimsTriageWorkflow.Executors;
 public static class EscalationHandler
 {
     /// <summary>
-    /// Determines EscalationReason by priority: high_amount > fraud_flag > high_urgency.
+    /// Determines EscalationReason by priority: red_flag → low_confidence → high_amount → fraud_flag → high_urgency.
     /// Pure logic, tested directly without a workflow context.
     /// </summary>
     public static string DetermineReason(ClaimClassification c)
     {
-        if (c.EstimatedAmount > Constants.AmountThreshold) return "high_amount";
-        if (c.FraudIndicators)                             return "fraud_flag";
+        if (c.PreScreenFlags.Any)                                        return "red_flag";
+        if (c.ClassificationConfidence < Constants.ConfidenceThreshold) return "low_confidence";
+        if (c.EstimatedAmount > Constants.AmountThreshold)              return "high_amount";
+        if (c.FraudIndicators)                                          return "fraud_flag";
         return "high_urgency";
     }
 

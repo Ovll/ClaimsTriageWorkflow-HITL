@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using ClaimsTriageWorkflow.Models;
 using Microsoft.Agents.AI.Workflows;
 
+
 namespace ClaimsTriageWorkflow.Executors;
 
 public static class Preprocessor
@@ -39,8 +40,9 @@ public static class Preprocessor
         masked     = MaskNames(masked);
 
         var incidentDate = ExtractDate(raw);
+        var flags = RedFlagDetector.Detect(raw);
 
-        return new PreprocessedClaim(claimId, policyNumber, masked, incidentDate, raw);
+        return new PreprocessedClaim(claimId, policyNumber, masked, incidentDate, raw, flags);
     }
 
     /// <summary>

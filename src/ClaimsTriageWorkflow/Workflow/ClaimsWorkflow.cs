@@ -104,6 +104,8 @@ public static class HitlConditions
             EstimatedAmount = 0,
             FraudIndicators = false,
             SafeToAutoApprove = true,
+            // Human explicitly overrode to auto-approve; confidence is effectively certain.
+            ClassificationConfidence = 1.0,
         };
 }
 
@@ -115,6 +117,8 @@ public static class RoutingConditions
 {
     public static bool ShouldEscalate(ClaimClassification c) =>
         HasUnknownClassification(c)
+        || c.PreScreenFlags.Any
+        || c.ClassificationConfidence < Constants.ConfidenceThreshold
         || c.Urgency == UrgencyLevel.High
         || c.FraudIndicators
         || c.EstimatedAmount > Constants.AmountThreshold;

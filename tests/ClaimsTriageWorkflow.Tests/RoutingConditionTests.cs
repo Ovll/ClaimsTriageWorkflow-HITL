@@ -1,3 +1,4 @@
+using ClaimsTriageWorkflow.Executors;
 using ClaimsTriageWorkflow.Models;
 using ClaimsTriageWorkflow.Workflow;
 using Xunit;
@@ -43,6 +44,34 @@ public class RoutingConditionTests
         Assert.True(RoutingConditions.ShouldEscalate(c));
     }
 
+    // ── Confidence threshold routing ──────────────────────────────────────────
+
+    [Fact]
+    public void Low_confidence_escalates()
+    {
+        var c = C(urgency: UrgencyLevel.Low, amount: 100m, fraud: false, safe: false, missing: 0);
+        c.ClassificationConfidence = 0.3; // below default 0.65 threshold
+        Assert.True(RoutingConditions.ShouldEscalate(c));
+    }
+
+    [Fact]
+    public void Confidence_at_threshold_does_not_escalate()
+    {
+        // Boundary: exactly at threshold is NOT < threshold, so it should not escalate.
+        var c = C(urgency: UrgencyLevel.Low, amount: 100m, fraud: false, safe: true, missing: 0);
+        c.ClassificationConfidence = Constants.ConfidenceThreshold;
+        Assert.False(RoutingConditions.ShouldEscalate(c));
+        Assert.True(RoutingConditions.ShouldAutoApprove(c));
+    }
+
+    [Fact]
+    public void Confidence_above_threshold_does_not_escalate()
+    {
+        var c = C(urgency: UrgencyLevel.Low, amount: 800m, fraud: false, safe: true, missing: 0);
+        c.ClassificationConfidence = 0.9;
+        Assert.False(RoutingConditions.ShouldEscalate(c));
+    }
+
     // ── Escalate branch ───────────────────────────────────────────────────────
 
     [Fact]
@@ -82,6 +111,89 @@ public class RoutingConditionTests
         var c = C(urgency: UrgencyLevel.Low, amount: 100m, fraud: true, safe: false, missing: 2);
         Assert.True(RoutingConditions.ShouldEscalate(c));
         Assert.False(RoutingConditions.ShouldRequestInfo(c));
+    }
+
+    // ── Red-flag pre-screening ────────────────────────────────────────────────
+
+    [Fact]
+    public void TotalLoss_fires_on_burned_down()
+    {
+        var flags = RedFlagDetector.Detect("The warehouse burned down completely.");
+        Assert.True(flags.TotalLoss);
+        Assert.True(flags.Any);
+    }
+
+    [Fact]
+    public void FireOrExplosion_fires_on_fire_keyword()
+    {
+        var flags = RedFlagDetector.Detect("There was a fire at the premises.");
+        Assert.True(flags.FireOrExplosion);
+        Assert.True(flags.Any);
+    }
+
+    [Fact]
+    public void FloodOrWater_fires_on_flooding()
+    {
+        var flags = RedFlagDetector.Detect("The basement had flooding.");
+        Assert.True(flags.FloodOrWater);
+        Assert.True(flags.Any);
+    }
+
+    [Fact]
+    public void FraudLanguage_fires_on_staged_keyword()
+    {
+        var flags = RedFlagDetector.Detect("The accident was staged.");
+        Assert.True(flags.FraudLanguage);
+        Assert.True(flags.Any);
+    }
+
+    [Fact]
+    public void HighValueLanguage_fires_on_millions()
+    {
+        var flags = RedFlagDetector.Detect("Loss in the millions.");
+        Assert.True(flags.HighValueLanguage);
+        Assert.True(flags.Any);
+    }
+
+    [Fact]
+    public void LegalLanguage_fires_on_lawsuit()
+    {
+        var flags = RedFlagDetector.Detect("I will file a lawsuit.");
+        Assert.True(flags.LegalLanguage);
+        Assert.True(flags.Any);
+    }
+
+    [Fact]
+    public void Case_insensitive_matching()
+    {
+        var flags = RedFlagDetector.Detect("FIRE and EXPLOSION damage.");
+        Assert.True(flags.FireOrExplosion);
+    }
+
+    [Fact]
+    public void Routine_claim_produces_None()
+    {
+        var flags = RedFlagDetector.Detect("Small water leak, receipt for ₪800 attached.");
+        Assert.False(flags.Any);
+    }
+
+    [Fact]
+    public void Multiple_flags_detected_simultaneously()
+    {
+        var flags = RedFlagDetector.Detect("There was fraud and a lawsuit after the fire.");
+        Assert.True(flags.FraudLanguage);
+        Assert.True(flags.LegalLanguage);
+        Assert.True(flags.FireOrExplosion);
+        Assert.True(flags.Any);
+    }
+
+    [Fact]
+    public void Red_flag_any_triggers_escalation()
+    {
+        var c = C(urgency: UrgencyLevel.Low, amount: 100m, fraud: false, safe: false, missing: 0);
+        c.PreScreenFlags = new PreScreenFlags(TotalLoss: true, FireOrExplosion: false, FloodOrWater: false, FraudLanguage: false, HighValueLanguage: false, LegalLanguage: false);
+        Assert.True(c.PreScreenFlags.Any);
+        Assert.True(RoutingConditions.ShouldEscalate(c));
     }
 
     // ── Escalate priority over RequestInfo ────────────────────────────────────
@@ -162,6 +274,8 @@ public class RoutingConditionTests
     {
         // Set ClaimType and Sentiment to known non-Unknown values so routing tests
         // isolate the variable under test rather than triggering HasUnknownClassification.
+        // Set ClassificationConfidence = 1.0 so the confidence threshold check does not
+        // fire accidentally and mask the condition being tested.
         var c = new ClaimClassification
         {
             ClaimType = ClaimType.Vehicle,
@@ -170,6 +284,7 @@ public class RoutingConditionTests
             EstimatedAmount = amount,
             FraudIndicators = fraud,
             SafeToAutoApprove = safe,
+            ClassificationConfidence = 1.0,
         };
         for (int i = 0; i < missing; i++) c.MissingInfo.Add($"item_{i}");
         return c;

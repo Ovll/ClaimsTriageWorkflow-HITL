@@ -27,6 +27,9 @@ public class ClaimClassification
     /// <summary>One-sentence model explanation of the key signals that drove this classification</summary>
     public string ClassificationRationale { get; set; } = string.Empty;
 
-    /// <summary>Model self-assessed certainty from 0.0 (completely uncertain) to 1.0 (unambiguous). Informational only — not used in routing until calibration evals establish a threshold.</summary>
+    /// <summary>Model self-assessed certainty from 0.0 (completely uncertain) to 1.0 (unambiguous). Below Constants.ConfidenceThreshold triggers escalation.</summary>
     public double ClassificationConfidence { get; set; }
+
+    /// <summary>Deterministic pre-screen flags attached by the classifier handler after LLM deserialization. The LLM does not populate this field.</summary>
+    public PreScreenFlags PreScreenFlags { get; set; } = PreScreenFlags.None;
 }

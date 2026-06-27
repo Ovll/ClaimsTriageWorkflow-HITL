@@ -18,4 +18,10 @@
     <ProjectReference Include="../../src/ClaimsTriageWorkflow/ClaimsTriageWorkflow.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Eval/eval-cases.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
