@@ -4,6 +4,25 @@
 
 An insurance claims triage system built with the **Microsoft Agent Framework (MAF)** and **Azure OpenAI / Ollama**. Incoming claims are preprocessed deterministically, classified by an LLM into a typed structured output, and automatically routed to one of three outcomes — auto-approval, information request, or human escalation via an interactive HITL gate.
 
+## Why it exists
+
+This project is a portfolio piece demonstrating production-quality patterns for LLM-powered workflows in an insurance-domain context. It shows: the MAF executor/agent model (branching on edges, not inside nodes), real structured output via `response_format` / typed deserialization, a deterministic red-flag pre-screening layer that overrides LLM decisions on high-risk keywords, confidence-threshold routing that escalates uncertain classifier output before it can reach auto-approval, and a human-in-the-loop gate that pauses the workflow and resumes on operator input.
+
+---
+
+## Tech stack
+
+| Component | Technology | Notes |
+|---|---|---|
+| Language / runtime | C# / .NET 8 | Top-level statements, nullable enabled |
+| Agent framework | Microsoft Agent Framework 1.10.0 | `WorkflowBuilder`, `ChatClientAgent`, `RequestPort` |
+| LLM — cloud | Azure OpenAI `gpt-4o` | Default; set via `LLM_PROVIDER=azure` |
+| LLM — local | Ollama `qwen2.5:7b` | Dev/offline; set via `LLM_PROVIDER=ollama` |
+| Structured output | `RunAsync<T>` + `JsonStringEnumConverter` | Schema derived from C# type; no manual JSON wiring |
+| Test framework | xUnit 2.9 | 64 unit tests; no LLM or network required |
+| CI | GitHub Actions | Build + test + Docker build on every push |
+| Containerisation | Docker (multi-stage) + Compose | `docker compose run triage` one-command start |
+
 ---
 
 ## Quick start
@@ -164,7 +183,47 @@ Final: claim IL-9910 escalated to human adjuster queue
 dotnet test
 ```
 
-Unit tests covering PII masking, routing conditions, red-flag detection, confidence threshold routing, escalation reason priority, enum sentinel fail-safe, HITL response parsing, and a labeled 12-case eval set. No LLM or network required.
+**64 tests, all passing. No LLM or network connection required.**
+
+| Category | What is covered |
+|---|---|
+| PII masking | Email, phone, name replacement; original text preserved |
+| Routing conditions | All escalate / request-info / auto-approve branches; priority ordering |
+| Red-flag detection | All 6 keyword categories; case-insensitive; multi-flag; no false-positive on routine text |
+| Confidence threshold | Below / at / above threshold boundary; env-var override |
+| Escalation priority | Full chain: `red_flag → low_confidence → high_amount → fraud_flag → high_urgency` |
+| HITL responses | Gate approve / override / null / unrecognised input paths |
+| Enum sentinel | Unknown = 0 forces escalation; integer enum values rejected at deserialization |
+| Labeled eval set | 12 cases including hard cases (priority conflicts, low-confidence, red-flag + high-amount) |
+
+---
+
+## Quality gates
+
+| Gate | What it checks | Command | CI |
+|---|---|---|---|
+| Build | Zero errors, zero warnings (`-warnaserror`) | `dotnet build -warnaserror` | ✅ |
+| Unit tests | All 64 tests pass | `dotnet test` | ✅ |
+| Docker build | Image builds from scratch on a clean layer | `docker build .` | ✅ |
+
+---
+
+## Known limitations
+
+1. **Confidence threshold is uncalibrated.** The default of 0.65 was set by intuition, not derived from labeled claim data. Low-confidence claims escalate, but the threshold may be too conservative or too loose for a real portfolio.
+2. **Audit log has no rotation or concurrent-writer safety.** `File.AppendAllTextAsync` is sufficient for a single-process CLI but is not safe for concurrent writers. Long-running deployments will need log rotation.
+3. **Name-masking heuristic produces false positives.** The capitalised-word-pair regex replaces place names, product names, and company names with `[NAME]`. A proper NER model would be more accurate.
+4. **HITL gate requires an interactive terminal.** The adjuster gate reads a decision from `Console.ReadLine()`. Piping claim text via stdin (e.g. `echo "..." | dotnet run`) is incompatible with the HITL prompt on the same stream.
+
+---
+
+## What to improve next
+
+1. **Calibrate `CONFIDENCE_THRESHOLD` against labeled data.** Run the classifier over a hold-out set of real claims with known outcomes, plot confidence distributions per route, and pick a threshold that minimises unsafe auto-approvals.
+2. **Add an HTTP or queue input surface.** A thin ASP.NET Core endpoint or Azure Service Bus consumer would let other systems submit claims without subprocess invocation.
+3. **Replace `File.AppendAllTextAsync` with a structured sink.** Writing to a database table or shipping JSONL to a log aggregator (e.g. Application Insights, Seq) enables rotation, querying, dashboards, and concurrent writes.
+4. **Stream audit events to the caller.** In a service context, pushing `AuditRecord` to the response stream as claims complete is more useful than a local file.
+5. **Expand the eval set with adversarial cases.** Add prompt-injection attempts, multilingual text, and near-threshold amounts (e.g. ₪9,999 vs ₪10,001) to harden the routing logic against edge inputs.
 
 ---
 
