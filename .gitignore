@@ -3,6 +3,7 @@
 bin/
 obj/
 audit.log
+HowItWorks.md
 
 # Course materials
 SPEC.md
